@@ -1,0 +1,15 @@
+----backend----
+    langchain
+    langchain-community
+    langchain-text-splitters
+    pypdf
+    sentence-transformers
+    chromadb
+    python-dotenv
+    langchain-ollama
+    langgraph
+    fastapi uvicorn
+
+
+-----frontend-----
+python-multipart
