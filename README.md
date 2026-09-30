@@ -1,63 +1,90 @@
 # 📚 Smart Study Assistant
 
-Smart Study Assistant is an AI-powered learning application that allows students to upload their own PDF study notes and interact with them using Retrieval-Augmented Generation (RAG).
+Smart Study Assistant is an AI-powered learning application that allows students to upload multiple PDF study notes and interact with them using **Retrieval-Augmented Generation (RAG)**.
 
-The application combines **LangChain, LangGraph, ChromaDB, Sentence Transformers, Ollama, FastAPI, and React** to provide question answering, source references, chat memory, quizzes, flashcards, and calculator support.
+The application combines **LangChain, LangGraph, ChromaDB, Sentence Transformers, Ollama, FastAPI, and React** to provide context-aware question answering, source references, quizzes, flashcards, summaries, revision notes, calculator support, and conversational history.
 
 ---
 
 ## ✨ Features
 
-- 📄 Upload PDF study notes
+- 📄 Upload multiple PDF study notes
+- 🗑️ Remove individual PDFs from the knowledge base
 - 🔍 Ask questions from uploaded notes
 - 🧠 Retrieval-Augmented Generation (RAG)
 - 📚 Source filename and page references
-- 💬 Conversational memory for follow-up questions
+- 💬 Conversational history for follow-up questions
 - 🔀 LangGraph-based intelligent routing
 - 🧮 Calculator tool
 - 🧠 AI-generated quizzes
 - 🗂️ AI-generated flashcards
+- 📝 AI-generated summaries
+- 📌 Key-point generation
+- 📖 Revision notes generation
 - 📊 Quiz score calculation
 - 🤖 Local LLM using Ollama
-- 🗃️ ChromaDB vector database
-- ⚡ FastAPI backend
+- 🗃️ Persistent ChromaDB vector database
+- ⚡ FastAPI REST backend
 - ⚛️ React + Vite frontend
 
 ---
 
-## 🧠 How It Works
+# 🧠 How It Works
 
 ```text
-PDF Upload
-    ↓
-Load PDF
-    ↓
-Split PDF into chunks
-    ↓
-Generate embeddings
-    ↓
-Store embeddings in ChromaDB
-    ↓
-User asks a question
-    ↓
-LangGraph Router
-    ↓
-┌────────────┬──────────────┬─────────────┐
-│    RAG     │  CALCULATOR  │   DIRECT    │
-└────────────┴──────────────┴─────────────┘
-    ↓
-Retrieve relevant notes
-    ↓
-Send context to Ollama
-    ↓
-Generate final answer
-    ↓
-Return answer + source pages
+              Multiple PDF Uploads
+                       │
+                       ▼
+                  PyPDFLoader
+                       │
+                       ▼
+             PDF Pages / Documents
+                       │
+                       ▼
+       RecursiveCharacterTextSplitter
+                       │
+                       ▼
+                    Chunks
+                       │
+                       ▼
+          all-MiniLM-L6-v2
+                       │
+                       ▼
+                  Embeddings
+                       │
+                       ▼
+                   ChromaDB
+                       │
+                       ▼
+                User Question
+                       │
+                       ▼
+               LangGraph Router
+                       │
+             ┌─────────┼─────────┐
+             │         │         │
+             ▼         ▼         ▼
+            RAG    CALCULATOR   DIRECT
+             │         │         │
+             ▼         ▼         ▼
+         Retriever   Math Tool   Ollama
+             │
+             ▼
+          ChromaDB
+             │
+             ▼
+      Relevant PDF Chunks
+             │
+             ▼
+           Ollama
+             │
+             ▼
+     Answer + Source Pages
 ```
 
 ---
 
-## 🏗️ Project Architecture
+# 🏗️ Project Architecture
 
 ```text
 SmartStudyAssistant/
@@ -68,6 +95,8 @@ SmartStudyAssistant/
 │   │
 │   ├── data/
 │   │   └── uploads/
+│   │
+│   ├── chroma_db/
 │   │
 │   └── src/
 │       │
@@ -102,6 +131,8 @@ SmartStudyAssistant/
 │   └── vite.config.js
 │
 ├── .gitignore
+├── pyproject.toml
+├── uv.lock
 └── README.md
 ```
 
@@ -115,10 +146,10 @@ SmartStudyAssistant/
 - FastAPI
 - LangChain
 - LangGraph
-- Ollama
 - ChromaDB
 - Sentence Transformers
 - PyPDF
+- Uvicorn
 
 ## Frontend
 
@@ -136,77 +167,185 @@ SmartStudyAssistant/
 - `all-MiniLM-L6-v2`
 - ChromaDB
 
+## Development Tools
+
+- Git
+- GitHub
+- WSL Ubuntu
+- `uv`
+- npm
+
 ---
 
 # 📄 PDF Processing
 
-When a user uploads a PDF, the backend processes it through the following pipeline:
+When a PDF is uploaded, it goes through the following pipeline:
 
 ```text
 PDF
- ↓
+ │
+ ▼
 PyPDFLoader
- ↓
+ │
+ ▼
+Extracted Pages
+ │
+ ▼
 RecursiveCharacterTextSplitter
- ↓
+ │
+ ▼
+Text Chunks
+ │
+ ▼
 Sentence Transformer
- ↓
-Vector Embeddings
- ↓
+ │
+ ▼
+384-dimensional Embeddings
+ │
+ ▼
 ChromaDB
 ```
 
-The uploaded PDF becomes the application's active knowledge base.
+Unlike the earlier version of the project, uploading a new PDF does **not replace the previous PDF data**.
 
-When a new PDF is uploaded, the previous vector data is removed and replaced with the newly uploaded document.
+Multiple PDFs can exist in the knowledge base at the same time.
+
+Example:
+
+```text
+ChromaDB
+
+├── python_notes.pdf
+├── dbms_notes.pdf
+└── operating_system.pdf
+```
+
+The assistant can retrieve relevant chunks from the stored study material when answering questions.
+
+---
+
+# 📚 Multiple PDF Support
+
+Users can upload several study documents.
+
+Example:
+
+```text
+📚 Uploaded Notes
+
+📄 python_notes.pdf
+📄 dbms_notes.pdf
+📄 operating_system.pdf
+```
+
+Each document is stored independently in ChromaDB using source metadata.
+
+A duplicate PDF filename can be detected before storing duplicate vectors.
+
+---
+
+# 🗑️ Remove PDF
+
+Each uploaded PDF can be removed individually.
+
+Example:
+
+```text
+📄 python_notes.pdf          ×
+📄 dbms_notes.pdf            ×
+📄 operating_system.pdf      ×
+```
+
+When a user removes a PDF:
+
+```text
+Click ×
+   │
+   ▼
+React Frontend
+   │
+   ▼
+DELETE API
+   │
+   ▼
+Find PDF chunks in ChromaDB
+   │
+   ▼
+Delete matching vectors
+   │
+   ▼
+Delete stored PDF
+   │
+   ▼
+Update frontend
+```
+
+Other uploaded PDFs remain available.
 
 ---
 
 # 🔍 Retrieval-Augmented Generation
 
-Questions related to the uploaded notes are processed using RAG.
+Questions related to uploaded notes are handled using RAG.
 
 Example:
 
 ```text
 User
- ↓
+ │
+ ▼
 "What is an integer?"
- ↓
+ │
+ ▼
 LangGraph Router
- ↓
-RAG Route
- ↓
-Convert question into embedding
- ↓
-Search ChromaDB
- ↓
-Retrieve relevant chunks
- ↓
-Send context + question to Ollama
- ↓
-Generate response
+ │
+ ▼
+RAG
+ │
+ ▼
+Create Question Embedding
+ │
+ ▼
+Similarity Search in ChromaDB
+ │
+ ▼
+Retrieve Relevant Chunks
+ │
+ ▼
+Question + Context
+ │
+ ▼
+Ollama / Llama 3.2
+ │
+ ▼
+Final Answer
 ```
 
-This allows the assistant to answer questions using information retrieved directly from the student's study notes.
+This allows the assistant to generate answers using relevant information from the student's uploaded study notes.
 
 ---
 
 # 🔀 LangGraph Routing
 
-The project uses LangGraph to classify user questions.
+LangGraph decides how a user query should be processed.
 
-There are currently three routes:
+The project currently contains three main routes:
 
 ```text
-RAG
-CALCULATOR
-DIRECT
+                User Query
+                    │
+                    ▼
+             LangGraph Router
+                    │
+          ┌─────────┼─────────┐
+          │         │         │
+          ▼         ▼         ▼
+         RAG    CALCULATOR   DIRECT
 ```
 
 ## RAG
 
-Used when the user asks something related to uploaded study notes.
+Used when a question should be answered using uploaded notes.
 
 Example:
 
@@ -229,14 +368,14 @@ Example:
 Result:
 
 ```text
-The result is 200
+200
 ```
 
 ---
 
 ## DIRECT
 
-Used for general conversation that does not require the uploaded notes.
+Used when the question does not require the uploaded notes or calculator.
 
 Example:
 
@@ -246,44 +385,39 @@ Hello
 
 ---
 
-# 💬 Chat Memory
+# 💬 Conversational History
 
-The frontend sends previous conversation messages along with the latest user question.
-
-This allows follow-up questions to make more sense.
+The React frontend sends previous conversation messages along with the latest question.
 
 Example:
 
 ```text
 User:
-What is an integer?
+What is inheritance?
 
 Assistant:
-An integer is a whole number.
+Inheritance allows one class to acquire properties
+and behavior from another class.
 
 User:
 Give me an example of it.
-
-Assistant:
-Examples include 5, 10, -3, and 0.
 ```
 
-The previous conversation helps the model understand what words like:
+Conversation history helps the router and LLM understand references such as:
 
 ```text
 it
 that
+this
 this concept
-the second one
+the previous one
 ```
-
-refer to.
 
 ---
 
 # 📚 Source References
 
-For RAG answers, the assistant can return information about the source chunks used for retrieval.
+RAG answers return source metadata whenever available.
 
 Example:
 
@@ -297,17 +431,15 @@ Page 18
 Page 19
 ```
 
-This makes answers easier to verify against the original study notes.
+This helps users verify generated answers against their original study material.
 
 ---
 
 # 🧠 Quiz Generation
 
-Users can generate quizzes automatically from uploaded study notes.
+Users can automatically generate quizzes from uploaded study material.
 
-The backend retrieves relevant information from the vector database and sends it to the LLM.
-
-Each quiz question contains:
+Each quiz question can contain:
 
 - Question
 - Four options
@@ -330,21 +462,21 @@ Example:
 }
 ```
 
-The frontend displays one question at a time.
+The React frontend displays questions one at a time.
 
-After selecting an answer, the user can see:
+After selecting an option, the user can see whether the answer was:
 
 ```text
 ✅ Correct
+```
 
-or
+or:
 
+```text
 ❌ Incorrect
 ```
 
-along with an explanation.
-
-At the end of the quiz, the final score is displayed.
+The final score is displayed after completing the quiz.
 
 Example:
 
@@ -384,7 +516,7 @@ Answer:
 An integer is a whole number without a decimal part.
 ```
 
-Users can move through cards using:
+Users can navigate using:
 
 ```text
 Previous
@@ -392,13 +524,47 @@ Show Answer
 Next
 ```
 
-This feature is useful for quick revision.
+---
+
+# 📝 AI Study Summaries
+
+The application can generate study material in three formats.
+
+## Summary
+
+Creates a concise explanation of the uploaded material.
+
+```text
+📝 Summary
+```
+
+---
+
+## Key Points
+
+Extracts important points for quick study.
+
+```text
+📌 Key Points
+```
+
+---
+
+## Revision Notes
+
+Creates structured notes for exam revision.
+
+```text
+📖 Revision Notes
+```
+
+The backend retrieves relevant study-note chunks from ChromaDB before sending them to the LLM.
 
 ---
 
 # 🔌 API Endpoints
 
-The FastAPI backend currently provides the following endpoints.
+The FastAPI backend exposes REST APIs used by the React frontend.
 
 ---
 
@@ -475,12 +641,41 @@ POST /upload-pdf
 
 The endpoint:
 
-1. Saves the PDF
-2. Loads its pages
-3. Splits the document into chunks
-4. Generates embeddings
-5. Removes old vector records
-6. Stores new embeddings in ChromaDB
+```text
+1. Validates the PDF
+2. Checks for duplicate documents
+3. Saves the PDF
+4. Loads its pages
+5. Splits pages into chunks
+6. Generates embeddings
+7. Stores embeddings in ChromaDB
+```
+
+Uploading another PDF does not delete previously stored documents.
+
+---
+
+## Delete PDF
+
+```http
+DELETE /documents/{filename}
+```
+
+Example:
+
+```http
+DELETE /documents/python_notes.pdf
+```
+
+The endpoint removes:
+
+```text
+PDF chunks from ChromaDB
+        +
+Stored PDF file
+```
+
+without removing the other documents.
 
 ---
 
@@ -496,28 +691,6 @@ Example request:
 {
   "topic": "Python data types",
   "count": 5
-}
-```
-
-Example response:
-
-```json
-{
-  "topic": "Python data types",
-  "count": 5,
-  "quiz": [
-    {
-      "question": "Which data type stores whole numbers?",
-      "options": [
-        "float",
-        "int",
-        "str",
-        "bool"
-      ],
-      "correctAnswer": 1,
-      "explanation": "int is used to represent whole numbers."
-    }
-  ]
 }
 ```
 
@@ -555,15 +728,96 @@ Example response:
 
 ---
 
+## Generate Study Notes
+
+```http
+POST /summary
+```
+
+Example request:
+
+```json
+{
+  "topic": "",
+  "mode": "summary"
+}
+```
+
+Available modes:
+
+```text
+summary
+keypoints
+revision
+```
+
+---
+
+# 🧠 Embedding Model
+
+The application uses:
+
+```text
+sentence-transformers/all-MiniLM-L6-v2
+```
+
+Embedding dimension:
+
+```text
+384
+```
+
+The model converts both:
+
+```text
+Document chunks
+      +
+User questions
+```
+
+into numerical vectors.
+
+These vectors allow ChromaDB to perform semantic similarity search.
+
+---
+
+# 🗃️ Vector Database
+
+The project uses:
+
+```text
+ChromaDB
+```
+
+ChromaDB stores:
+
+```text
+Document chunk
+Embedding
+Metadata
+Source filename
+Page information
+```
+
+The database is persisted locally inside:
+
+```text
+backend/chroma_db/
+```
+
+This directory is excluded from Git because each running environment creates and maintains its own vector database.
+
+---
+
 # ⚙️ Installation
 
-## 1. Clone Repository
+## 1. Clone the Repository
 
 ```bash
 git clone https://github.com/archita-garg02/StudyAssistant.git
 ```
 
-Move into the project:
+Enter the project:
 
 ```bash
 cd StudyAssistant
@@ -573,7 +827,7 @@ cd StudyAssistant
 
 # 🐍 Backend Setup
 
-Move to the backend:
+Go to the backend:
 
 ```bash
 cd backend
@@ -603,7 +857,7 @@ Install Ollama from:
 https://ollama.com/
 ```
 
-Pull the model:
+Pull Llama 3.2:
 
 ```bash
 ollama pull llama3.2
@@ -615,7 +869,7 @@ Check installed models:
 ollama list
 ```
 
-You should see something similar to:
+You should see:
 
 ```text
 NAME
@@ -624,24 +878,36 @@ llama3.2
 
 ---
 
-# ▶️ Run Backend
+# ▶️ Run the Backend
 
-From the backend directory:
+From:
+
+```text
+SmartStudyAssistant/backend
+```
+
+run:
 
 ```bash
 uv run uvicorn api:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-The backend will run at:
+Backend:
 
 ```text
 http://localhost:8000
 ```
 
-FastAPI Swagger documentation:
+Swagger API documentation:
 
 ```text
 http://localhost:8000/docs
+```
+
+Health check:
+
+```text
+http://localhost:8000/health
 ```
 
 ---
@@ -662,7 +928,7 @@ Install dependencies:
 npm install
 ```
 
-Start the Vite development server:
+Start Vite:
 
 ```bash
 npm run dev
@@ -676,13 +942,13 @@ http://localhost:5173
 
 ---
 
-# 🚀 Running the Complete Project
+# 🚀 Running the Complete Application
 
-You need three things running.
+The development version requires three components.
 
 ## 1. Ollama
 
-Make sure the Ollama service and model are available.
+Check:
 
 ```bash
 ollama list
@@ -690,7 +956,7 @@ ollama list
 
 ---
 
-## 2. FastAPI Backend
+## 2. FastAPI
 
 ```bash
 cd backend
@@ -700,7 +966,7 @@ uv run uvicorn api:app --host 0.0.0.0 --port 8000 --reload
 
 ---
 
-## 3. React Frontend
+## 3. React
 
 Open another terminal:
 
@@ -710,7 +976,7 @@ cd frontend-web
 npm run dev
 ```
 
-Then open:
+Open:
 
 ```text
 http://localhost:5173
@@ -722,65 +988,75 @@ http://localhost:5173
 
 ## Step 1
 
-Open the application.
+Start Ollama, FastAPI, and React.
 
 ---
 
 ## Step 2
 
-Click:
+Open:
 
 ```text
-+
+http://localhost:5173
 ```
-
-and select a PDF containing your study notes.
 
 ---
 
 ## Step 3
 
-Wait while the application processes the PDF.
-
-Example:
+Click the:
 
 ```text
-PDF uploaded successfully.
-
-python_notes.pdf
-
-142 pages • 201 chunks
++
 ```
+
+button and upload a PDF.
 
 ---
 
 ## Step 4
 
-Ask a question:
+Upload additional PDFs if required.
+
+Example:
 
 ```text
-What is int?
-```
+📚 Uploaded Notes 3
 
-The assistant retrieves relevant content from the PDF and generates an answer.
+📄 python.pdf
+📄 dbms.pdf
+📄 operating_system.pdf
+```
 
 ---
 
 ## Step 5
 
-Ask a follow-up:
+Ask a question:
 
 ```text
-Give me an example of it.
+What is an integer?
 ```
 
-The previous conversation is included as chat history.
+The assistant retrieves relevant content using semantic search and generates an answer.
 
 ---
 
 ## Step 6
 
-Generate a quiz using:
+Ask follow-up questions:
+
+```text
+Give me an example of it.
+```
+
+Conversation history is included when processing the request.
+
+---
+
+## Step 7
+
+Generate a quiz:
 
 ```text
 🧠 Quiz Me
@@ -788,9 +1064,9 @@ Generate a quiz using:
 
 ---
 
-## Step 7
+## Step 8
 
-Generate revision cards using:
+Generate flashcards:
 
 ```text
 🗂️ Flashcards
@@ -798,123 +1074,27 @@ Generate revision cards using:
 
 ---
 
-# 🧠 Embedding Model
+## Step 9
 
-The project uses:
-
-```text
-sentence-transformers/all-MiniLM-L6-v2
-```
-
-Embedding dimension:
+Generate study notes:
 
 ```text
-384
-```
-
-The embedding model converts both document chunks and user queries into numerical vectors.
-
-These vectors are used to perform semantic similarity search.
-
----
-
-# 🗃️ Vector Database
-
-The project uses:
-
-```text
-ChromaDB
-```
-
-ChromaDB stores:
-
-```text
-Document chunk
-Embedding
-Metadata
-Source filename
-Page information
-```
-
-During a query, ChromaDB finds the chunks that are semantically closest to the user's question.
-
----
-
-# 🔄 Complete RAG Pipeline
-
-```text
-              PDF
-               │
-               ▼
-          PyPDFLoader
-               │
-               ▼
-          PDF Pages
-               │
-               ▼
- RecursiveCharacterTextSplitter
-               │
-               ▼
-            Chunks
-               │
-               ▼
-      all-MiniLM-L6-v2
-               │
-               ▼
-           Embeddings
-               │
-               ▼
-           ChromaDB
-               │
-               │
-User Question ─┘
-      │
-      ▼
-Question Embedding
-      │
-      ▼
-Similarity Search
-      │
-      ▼
-Relevant Chunks
-      │
-      ▼
-     Ollama
-      │
-      ▼
-Final RAG Answer
+📝 Summary
+📌 Key Points
+📖 Revision Notes
 ```
 
 ---
 
-# 🔀 Complete Agent Flow
+## Step 10
+
+Remove an uploaded PDF using:
 
 ```text
-                   User Question
-                         │
-                         ▼
-                  LangGraph Router
-                         │
-              ┌──────────┼───────────┐
-              │          │           │
-              ▼          ▼           ▼
-             RAG     CALCULATOR    DIRECT
-              │          │           │
-              ▼          ▼           ▼
-          Retriever   Math Tool    Ollama
-              │
-              ▼
-          ChromaDB
-              │
-              ▼
-        Relevant Notes
-              │
-              ▼
-           Ollama
-              │
-              ▼
-           Answer
+×
 ```
+
+Only that document is removed from the knowledge base.
 
 ---
 
@@ -922,56 +1102,63 @@ Final RAG Answer
 
 ## `backend/api.py`
 
-Contains:
+Responsible for:
 
 - FastAPI application
 - API endpoints
-- PDF upload
+- PDF uploads
+- PDF deletion
 - Quiz generation
 - Flashcard generation
+- Summary generation
 - RAG initialization
 
 ---
 
 ## `backend/src/loader.py`
 
-Loads PDF documents.
+Loads PDF documents using PyPDF.
 
 ---
 
 ## `backend/src/chunking.py`
 
-Splits loaded PDF pages into smaller chunks.
+Splits PDF pages into smaller chunks.
 
 ---
 
 ## `backend/src/embeddings.py`
 
-Generates embeddings using Sentence Transformers.
+Generates vector embeddings using Sentence Transformers.
 
 ---
 
 ## `backend/src/vectorstore.py`
 
-Handles ChromaDB storage.
+Handles:
+
+- ChromaDB storage
+- Document insertion
+- Duplicate checking
+- Document deletion
 
 ---
 
 ## `backend/src/retriever.py`
 
-Performs similarity search.
+Performs semantic similarity search.
 
 ---
 
 ## `backend/src/graph.py`
 
-Contains the LangGraph workflow and routing logic.
+Contains the LangGraph routing workflow.
 
 ---
 
 ## `backend/src/tools/rag_tool.py`
 
-Provides the RAG search tool.
+Provides the RAG retrieval tool used by the graph.
 
 ---
 
@@ -983,75 +1170,133 @@ Provides mathematical calculation functionality.
 
 ## `frontend-web/src/App.jsx`
 
-Contains the main React interface and application state.
+Contains:
+
+- Main React interface
+- Chat state
+- PDF upload state
+- Multiple PDF display
+- PDF removal
+- Quiz controls
+- Flashcard controls
+- Summary controls
 
 ---
 
 ## `frontend-web/src/components/QuizPanel.jsx`
 
-Displays generated quiz questions and calculates scores.
+Displays generated quiz questions and calculates quiz scores.
 
 ---
 
 ## `frontend-web/src/components/FlashcardPanel.jsx`
 
-Displays generated study flashcards.
+Displays generated flashcards.
 
 ---
 
 ## `frontend-web/src/services/api.js`
 
-Handles communication between React and FastAPI.
+Handles communication between the React frontend and FastAPI backend.
 
 ---
 
-# 🔒 Git Ignore Recommendations
+# 🔒 Git Ignore
 
-The following files and directories should not be committed:
+Local/generated files should not be committed.
 
 ```gitignore
-.venv/
-venv/
-
+# Python-generated files
 __pycache__/
-*.pyc
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
 
+# Virtual environments
+.venv/
+
+# Environment variables
 .env
 
-node_modules/
-dist/
+# Local ChromaDB
+backend/chroma_db/
 
-data/uploads/
+# Uploaded PDFs
+backend/data/uploads/
 
-chroma_db/
-chroma/
+# React dependencies
+frontend-web/node_modules/
 
+# React production build
+frontend-web/dist/
+
+# IDE files
 .idea/
 .vscode/
-
-.DS_Store
 ```
+
+---
+
+# ☁️ Deployment
+
+The application is being prepared for deployment using an **Azure Ubuntu Virtual Machine**.
+
+The planned production architecture is:
+
+```text
+                    Internet
+                       │
+                       ▼
+                    Nginx
+                   /     \
+                  /       \
+          React Frontend   /api
+                             │
+                             ▼
+                          FastAPI
+                             │
+                      ┌──────┴──────┐
+                      │             │
+                  LangGraph       ChromaDB
+                      │
+                      ▼
+                 Ollama / Llama 3.2
+```
+
+The Azure VM will host:
+
+```text
+React production build
+FastAPI backend
+Ollama
+Llama 3.2
+ChromaDB
+Nginx
+```
+
+A public deployment URL will be added after deployment is completed.
 
 ---
 
 # 🔮 Future Improvements
 
-Planned improvements include:
+Possible future enhancements include:
 
-- 📑 Multiple PDF support
-- 📝 Automatic study summaries
-- 📌 Key-point extraction
-- 📖 Revision notes generation
-- 🧠 Topic-specific quizzes
-- 🗂️ Topic-specific flashcards
-- 💾 Persistent LangGraph memory
-- 💬 Chat history sidebar
+- 📄 Search within a selected PDF
+- 💾 Persistent LangGraph conversation memory
+- 💬 Chat-history sidebar
 - ⚡ Streaming AI responses
 - 🌙 Dark mode
 - 🔐 User authentication
-- ☁️ Cloud deployment
+- 👤 Multiple user accounts
 - 📊 Student progress tracking
 - 🎯 Personalized study recommendations
+- 📂 Organize PDFs by subject
+- 🔎 Advanced document filtering
+- 🧠 Improved follow-up query rewriting
+- 📱 Mobile-friendly interface
 
 ---
 
@@ -1059,13 +1304,21 @@ Planned improvements include:
 
 The goal of Smart Study Assistant is to make studying more interactive by allowing students to use their own learning material as the knowledge source for an AI assistant.
 
-Instead of searching manually through long PDFs, students can:
+Instead of manually searching through long documents, students can:
 
 ```text
 Ask
-Learn
+ │
+ ▼
+Understand
+ │
+ ▼
 Revise
+ │
+ ▼
 Practice
+ │
+ ▼
 Quiz
 ```
 
@@ -1079,13 +1332,13 @@ from a single application.
 
 B.Tech Computer Science Engineering
 
-GitHub:
+### GitHub
 
 ```text
 https://github.com/archita-garg02
 ```
 
-Project Repository:
+### Project Repository
 
 ```text
 https://github.com/archita-garg02/StudyAssistant
