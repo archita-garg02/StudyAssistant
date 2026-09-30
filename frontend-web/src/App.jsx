@@ -1287,7 +1287,7 @@ function App() {
         />
 
       )}
-
+git add .gitignore
 
 
       {/* FLASHCARD MODAL */}

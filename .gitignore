@@ -8,3 +8,22 @@ wheels/
 
 # Virtual environments
 .venv
+
+# Environment variables
+.env
+
+# ChromaDB local database
+backend/chroma_db/
+
+# Uploaded PDF files
+backend/data/uploads/
+
+# React dependencies
+frontend-web/node_modules/
+
+# React production build
+frontend-web/dist/
+
+# IDE files
+.idea/
+.vscode/
