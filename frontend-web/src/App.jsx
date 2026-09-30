@@ -6,6 +6,8 @@ import {
   uploadPdf,
   generateQuiz,
   generateFlashcards,
+  generateSummary,
+  deletePdf,
 } from "./services/api";
 
 import QuizPanel from "./components/QuizPanel";
@@ -13,25 +15,59 @@ import FlashcardPanel from "./components/FlashcardPanel";
 
 
 function App() {
+  // --------------------------------------------------
+  // BASIC CHAT STATES
+  // --------------------------------------------------
+
   const [question, setQuestion] = useState("");
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
 
+
+  // --------------------------------------------------
+  // PDF STATES
+  // --------------------------------------------------
+
   const [uploading, setUploading] = useState(false);
-  const [uploadedFile, setUploadedFile] = useState(null);
+
+  const [uploadedFiles, setUploadedFiles] = useState([]);
+
+  const [deletingFile, setDeletingFile] = useState(null);
 
 
-  // Quiz states
+  // --------------------------------------------------
+  // QUIZ STATES
+  // --------------------------------------------------
+
   const [quiz, setQuiz] = useState([]);
   const [quizLoading, setQuizLoading] = useState(false);
   const [showQuiz, setShowQuiz] = useState(false);
 
 
-  // Flashcard states
-  const [flashcards, setFlashcards] = useState([]);
-  const [flashcardLoading, setFlashcardLoading] = useState(false);
-  const [showFlashcards, setShowFlashcards] = useState(false);
+  // --------------------------------------------------
+  // FLASHCARD STATES
+  // --------------------------------------------------
 
+  const [flashcards, setFlashcards] = useState([]);
+
+  const [flashcardLoading, setFlashcardLoading] =
+    useState(false);
+
+  const [showFlashcards, setShowFlashcards] =
+    useState(false);
+
+
+  // --------------------------------------------------
+  // SUMMARY STATE
+  // --------------------------------------------------
+
+  const [summaryLoading, setSummaryLoading] =
+    useState(false);
+
+
+  // --------------------------------------------------
+  // REFS
+  // --------------------------------------------------
 
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -45,7 +81,14 @@ function App() {
     messagesEndRef.current?.scrollIntoView({
       behavior: "smooth",
     });
-  }, [messages, loading, uploading]);
+  }, [
+    messages,
+    loading,
+    uploading,
+    summaryLoading,
+    quizLoading,
+    flashcardLoading,
+  ]);
 
 
   // --------------------------------------------------
@@ -58,7 +101,9 @@ function App() {
       loading ||
       uploading ||
       quizLoading ||
-      flashcardLoading
+      flashcardLoading ||
+      summaryLoading ||
+      deletingFile
     ) {
       return;
     }
@@ -71,7 +116,9 @@ function App() {
       .filter(
         (message) =>
           message.route !== "UPLOAD" &&
-          message.route !== "ERROR"
+          message.route !== "ERROR" &&
+          message.route !== "SUMMARY" &&
+          message.route !== "DELETE"
       )
       .map((message) => ({
         role:
@@ -130,6 +177,7 @@ function App() {
         role: "assistant",
 
         text:
+          error.message ||
           "Unable to get a response. " +
           "Please make sure the backend is running.",
 
@@ -206,23 +254,17 @@ function App() {
       const data = await uploadPdf(file);
 
 
-      setUploadedFile(
-        data.filename
-      );
+      // Add PDF to uploaded list
+      setUploadedFiles((prev) => {
+        if (prev.includes(data.filename)) {
+          return prev;
+        }
 
-
-      // New PDF = new knowledge base
-      setMessages([]);
-
-
-      // Remove old quiz
-      setQuiz([]);
-      setShowQuiz(false);
-
-
-      // Remove old flashcards
-      setFlashcards([]);
-      setShowFlashcards(false);
+        return [
+          ...prev,
+          data.filename,
+        ];
+      });
 
 
       const uploadMessage = {
@@ -240,8 +282,9 @@ function App() {
       };
 
 
-      setMessages([
-        uploadMessage
+      setMessages((prev) => [
+        ...prev,
+        uploadMessage,
       ]);
 
     } catch (error) {
@@ -278,13 +321,111 @@ function App() {
 
 
   // --------------------------------------------------
+  // DELETE PDF
+  // --------------------------------------------------
+
+  const handleDeletePdf = async (filename) => {
+    if (
+      deletingFile ||
+      uploading ||
+      loading ||
+      quizLoading ||
+      flashcardLoading ||
+      summaryLoading
+    ) {
+      return;
+    }
+
+
+    const confirmed = window.confirm(
+      `Remove "${filename}" from your study notes?`
+    );
+
+
+    if (!confirmed) {
+      return;
+    }
+
+
+    setDeletingFile(filename);
+
+
+    try {
+      await deletePdf(filename);
+
+
+      // Remove file from frontend list
+      setUploadedFiles((prev) =>
+        prev.filter(
+          (file) => file !== filename
+        )
+      );
+
+
+      // Remove old generated content
+      setQuiz([]);
+      setShowQuiz(false);
+
+      setFlashcards([]);
+      setShowFlashcards(false);
+
+
+      const deleteMessage = {
+        id: `${Date.now()}-delete`,
+        role: "assistant",
+
+        text:
+          `Removed "${filename}" ` +
+          `from the knowledge base.`,
+
+        route: "DELETE",
+        sources: [],
+      };
+
+
+      setMessages((prev) => [
+        ...prev,
+        deleteMessage,
+      ]);
+
+    } catch (error) {
+      console.error(error);
+
+
+      setMessages((prev) => [
+        ...prev,
+
+        {
+          id: `${Date.now()}-delete-error`,
+          role: "assistant",
+
+          text:
+            error.message ||
+            "Unable to remove PDF.",
+
+          route: "ERROR",
+          sources: [],
+        },
+      ]);
+
+    } finally {
+      setDeletingFile(null);
+    }
+  };
+
+
+  // --------------------------------------------------
   // GENERATE QUIZ
   // --------------------------------------------------
 
   const handleGenerateQuiz = async () => {
     if (
       quizLoading ||
-      flashcardLoading
+      flashcardLoading ||
+      summaryLoading ||
+      uploading ||
+      loading ||
+      deletingFile
     ) {
       return;
     }
@@ -313,6 +454,7 @@ function App() {
 
       setMessages((prev) => [
         ...prev,
+
         {
           id: `${Date.now()}-quiz-error`,
           role: "assistant",
@@ -339,7 +481,11 @@ function App() {
   const handleGenerateFlashcards = async () => {
     if (
       flashcardLoading ||
-      quizLoading
+      quizLoading ||
+      summaryLoading ||
+      uploading ||
+      loading ||
+      deletingFile
     ) {
       return;
     }
@@ -368,6 +514,7 @@ function App() {
 
       setMessages((prev) => [
         ...prev,
+
         {
           id: `${Date.now()}-flashcard-error`,
           role: "assistant",
@@ -383,6 +530,90 @@ function App() {
 
     } finally {
       setFlashcardLoading(false);
+    }
+  };
+
+
+  // --------------------------------------------------
+  // GENERATE SUMMARY
+  // --------------------------------------------------
+
+  const handleGenerateSummary = async (mode) => {
+    if (
+      summaryLoading ||
+      quizLoading ||
+      flashcardLoading ||
+      uploading ||
+      loading ||
+      deletingFile
+    ) {
+      return;
+    }
+
+
+    setSummaryLoading(true);
+
+
+    try {
+      const data = await generateSummary(
+        "",
+        mode
+      );
+
+
+      let title = "📝 Summary";
+
+
+      if (mode === "keypoints") {
+        title = "📌 Key Points";
+      }
+
+
+      if (mode === "revision") {
+        title = "📖 Revision Notes";
+      }
+
+
+      const summaryMessage = {
+        id: `${Date.now()}-summary`,
+        role: "assistant",
+
+        text:
+          `${title}\n\n` +
+          data.summary,
+
+        route: "SUMMARY",
+        sources: [],
+      };
+
+
+      setMessages((prev) => [
+        ...prev,
+        summaryMessage,
+      ]);
+
+    } catch (error) {
+      console.error(error);
+
+
+      setMessages((prev) => [
+        ...prev,
+
+        {
+          id: `${Date.now()}-summary-error`,
+          role: "assistant",
+
+          text:
+            error.message ||
+            "Unable to generate summary.",
+
+          route: "ERROR",
+          sources: [],
+        },
+      ]);
+
+    } finally {
+      setSummaryLoading(false);
     }
   };
 
@@ -427,8 +658,11 @@ function App() {
 
           <div className="header-actions">
 
-            {uploadedFile && (
+            {uploadedFiles.length > 0 && (
               <>
+
+                {/* QUIZ */}
+
                 <button
                   className="quiz-button"
 
@@ -436,7 +670,11 @@ function App() {
 
                   disabled={
                     quizLoading ||
-                    flashcardLoading
+                    flashcardLoading ||
+                    summaryLoading ||
+                    uploading ||
+                    loading ||
+                    deletingFile
                   }
                 >
                   {quizLoading
@@ -444,6 +682,8 @@ function App() {
                     : "🧠 Quiz Me"}
                 </button>
 
+
+                {/* FLASHCARDS */}
 
                 <button
                   className="flashcard-button"
@@ -454,13 +694,92 @@ function App() {
 
                   disabled={
                     flashcardLoading ||
-                    quizLoading
+                    quizLoading ||
+                    summaryLoading ||
+                    uploading ||
+                    loading ||
+                    deletingFile
                   }
                 >
                   {flashcardLoading
                     ? "Generating..."
                     : "🗂️ Flashcards"}
                 </button>
+
+
+                {/* SUMMARY */}
+
+                <button
+                  className="summary-button"
+
+                  onClick={() =>
+                    handleGenerateSummary(
+                      "summary"
+                    )
+                  }
+
+                  disabled={
+                    summaryLoading ||
+                    quizLoading ||
+                    flashcardLoading ||
+                    uploading ||
+                    loading ||
+                    deletingFile
+                  }
+                >
+                  {summaryLoading
+                    ? "Generating..."
+                    : "📝 Summary"}
+                </button>
+
+
+                {/* KEY POINTS */}
+
+                <button
+                  className="summary-button"
+
+                  onClick={() =>
+                    handleGenerateSummary(
+                      "keypoints"
+                    )
+                  }
+
+                  disabled={
+                    summaryLoading ||
+                    quizLoading ||
+                    flashcardLoading ||
+                    uploading ||
+                    loading ||
+                    deletingFile
+                  }
+                >
+                  📌 Key Points
+                </button>
+
+
+                {/* REVISION NOTES */}
+
+                <button
+                  className="summary-button"
+
+                  onClick={() =>
+                    handleGenerateSummary(
+                      "revision"
+                    )
+                  }
+
+                  disabled={
+                    summaryLoading ||
+                    quizLoading ||
+                    flashcardLoading ||
+                    uploading ||
+                    loading ||
+                    deletingFile
+                  }
+                >
+                  📖 Revision Notes
+                </button>
+
               </>
             )}
 
@@ -504,7 +823,7 @@ function App() {
 
 
                 <p>
-                  Upload your study notes using the
+                  Upload one or more study PDFs using the
                   <strong> + </strong>
                   button and ask questions from them.
                 </p>
@@ -675,7 +994,7 @@ function App() {
 
 
                 <div className="uploading-text">
-                  Processing your PDF
+                  Processing your PDF...
                 </div>
 
 
@@ -719,32 +1038,111 @@ function App() {
           )}
 
 
+
+          {/* SUMMARY GENERATING */}
+
+          {summaryLoading && (
+
+            <div className="message-row assistant-row">
+
+              <div className="message assistant-message">
+
+                <div className="message-label">
+                  Study Assistant
+                </div>
+
+
+                <div className="uploading-text">
+                  Creating study notes...
+                </div>
+
+
+                <div className="typing-indicator">
+                  <span></span>
+                  <span></span>
+                  <span></span>
+                </div>
+
+              </div>
+
+            </div>
+
+          )}
+
+
           <div ref={messagesEndRef} />
 
         </main>
 
 
 
-        {/* ACTIVE PDF */}
+        {/* MULTIPLE UPLOADED PDFS */}
 
-        {uploadedFile && (
+        {uploadedFiles.length > 0 && (
 
-          <div className="active-file">
+          <div className="uploaded-files-section">
 
-            <span>
-              📄
-            </span>
+            <div className="uploaded-files-title">
+
+              📚 Uploaded Notes
+
+              <span className="uploaded-files-count">
+                {uploadedFiles.length}
+              </span>
+
+            </div>
 
 
-            <div>
+            <div className="uploaded-files-list">
 
-              <small>
-                Active notes
-              </small>
+              {uploadedFiles.map(
+                (file, index) => (
 
-              <strong>
-                {uploadedFile}
-              </strong>
+                  <div
+                    key={`${file}-${index}`}
+                    className="uploaded-file-item"
+                  >
+
+                    <span className="uploaded-file-icon">
+                      📄
+                    </span>
+
+
+                    <span className="uploaded-file-name">
+                      {file}
+                    </span>
+
+
+                    <button
+                      type="button"
+
+                      className="remove-file-button"
+
+                      onClick={() =>
+                        handleDeletePdf(file)
+                      }
+
+                      disabled={
+                        deletingFile === file ||
+                        uploading ||
+                        loading ||
+                        quizLoading ||
+                        flashcardLoading ||
+                        summaryLoading
+                      }
+
+                      title={`Remove ${file}`}
+                      aria-label={`Remove ${file}`}
+                    >
+                      {deletingFile === file
+                        ? "..."
+                        : "×"}
+                    </button>
+
+                  </div>
+
+                )
+              )}
 
             </div>
 
@@ -761,9 +1159,13 @@ function App() {
 
           <input
             ref={fileInputRef}
+
             type="file"
+
             accept=".pdf,application/pdf"
+
             onChange={handleFileChange}
+
             hidden
           />
 
@@ -781,10 +1183,13 @@ function App() {
               uploading ||
               loading ||
               quizLoading ||
-              flashcardLoading
+              flashcardLoading ||
+              summaryLoading ||
+              deletingFile
             }
 
             title="Upload PDF"
+
             aria-label="Upload PDF"
           >
 
@@ -804,11 +1209,15 @@ function App() {
             placeholder={
               uploading
                 ? "Processing PDF..."
-                : quizLoading
-                  ? "Generating quiz..."
-                  : flashcardLoading
-                    ? "Generating flashcards..."
-                    : "Ask your study assistant..."
+                : deletingFile
+                  ? "Removing PDF..."
+                  : quizLoading
+                    ? "Generating quiz..."
+                    : flashcardLoading
+                      ? "Generating flashcards..."
+                      : summaryLoading
+                        ? "Generating study notes..."
+                        : "Ask your study assistant..."
             }
 
             onChange={(event) =>
@@ -823,7 +1232,9 @@ function App() {
               loading ||
               uploading ||
               quizLoading ||
-              flashcardLoading
+              flashcardLoading ||
+              summaryLoading ||
+              deletingFile
             }
 
             rows={1}
@@ -845,7 +1256,9 @@ function App() {
               loading ||
               uploading ||
               quizLoading ||
-              flashcardLoading
+              flashcardLoading ||
+              summaryLoading ||
+              deletingFile
             }
           >
 

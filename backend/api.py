@@ -274,6 +274,15 @@ async def upload_pdf(
             Path(file.filename).name
         )
 
+        if vectorstore.document_exists(
+            str(file_path)
+        ):
+            raise HTTPException(
+                status_code=400,
+                detail=
+                    "This PDF has already been uploaded."
+            )
+
         contents = await file.read()
 
 
@@ -356,37 +365,6 @@ async def upload_pdf(
                 chunks
             )
         )
-
-
-        # ------------------------------------------
-        # 5. DELETE OLD VECTOR DATA
-        # ------------------------------------------
-
-        existing_data = (
-            vectorstore
-            .collection
-            .get()
-        )
-
-        existing_ids = (
-            existing_data.get(
-                "ids",
-                []
-            )
-        )
-
-
-        if existing_ids:
-
-            vectorstore.collection.delete(
-                ids=existing_ids
-            )
-
-            print(
-                f"Deleted "
-                f"{len(existing_ids)} "
-                f"old chunks"
-            )
 
 
         # ------------------------------------------
@@ -936,6 +914,74 @@ Topic:
 
         print(
             "Flashcard error:",
+            error
+        )
+
+        raise HTTPException(
+            status_code=500,
+            detail=str(error)
+        )
+
+
+@app.delete("/documents/{filename}")
+def delete_document(filename: str):
+
+    try:
+
+        file_path = (
+            UPLOAD_DIR /
+            Path(filename).name
+        )
+
+        source = str(file_path)
+
+
+        deleted_chunks = (
+            vectorstore.delete_document(
+                source
+            )
+        )
+
+
+        if deleted_chunks == 0:
+            raise HTTPException(
+                status_code=404,
+                detail=
+                    "PDF was not found "
+                    "in the knowledge base."
+            )
+
+
+        # Delete physical PDF too
+        if file_path.exists():
+            file_path.unlink()
+
+
+        return {
+            "message":
+                "PDF removed successfully",
+
+            "filename":
+                filename,
+
+            "deleted_chunks":
+                deleted_chunks,
+
+            "vector_records":
+                vectorstore
+                .collection
+                .count()
+        }
+
+
+    except HTTPException:
+        raise
+
+
+    except Exception as error:
+
+        print(
+            "Delete PDF error:",
             error
         )
 

@@ -24,17 +24,21 @@ def create_rag_tool(retriever):
         documents_found = results["documents"][0]
         metadatas_found = results["metadatas"][0]
 
+
         if not documents_found:
             return {
                 "context": "",
                 "sources": []
             }
 
+
         context = "\n\n".join(
             documents_found
         )
 
+
         sources = []
+
 
         for metadata in metadatas_found:
 
@@ -51,17 +55,23 @@ def create_rag_tool(retriever):
                 )
             )
 
-           source_item = {
+
+            source_item = {
                 "source": source,
                 "page": page
             }
 
+
             if source_item not in sources:
-                sources.append(source_item)
+                sources.append(
+                    source_item
+                )
+
 
         return {
             "context": context,
             "sources": sources
         }
+
 
     return search_notes

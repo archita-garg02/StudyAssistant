@@ -1244,5 +1244,101 @@ body {
     cursor: not-allowed;
   }
 
+  .summary-button {
+  border: none;
+  border-radius: 9px;
+  padding: 9px 14px;
+
+  background: #fef3c7;
+  color: #92400e;
+
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.summary-button:hover:not(:disabled) {
+  background: #fde68a;
+}
+
+.summary-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.uploaded-files-section {
+  padding: 10px 16px;
+
+  border-top: 1px solid #e5e7eb;
+
+  background: #f9fafb;
+}
+
+.uploaded-files-title {
+  margin-bottom: 8px;
+
+  font-size: 12px;
+  font-weight: 700;
+
+  color: #6b7280;
+}
+
+.uploaded-files-list {
+  display: flex;
+
+  flex-wrap: wrap;
+
+  gap: 8px;
+}
+
+.uploaded-file-item {
+  display: flex;
+  align-items: center;
+
+  gap: 6px;
+
+  padding: 7px 10px;
+
+  border-radius: 8px;
+
+  background: #ffffff;
+
+  border: 1px solid #e5e7eb;
+
+  font-size: 12px;
+
+  color: #374151;
+}
+
+
+.remove-file-button {
+  width: 22px;
+  height: 22px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  flex-shrink: 0;
+
+  border: none;
+  border-radius: 50%;
+
+  background: #fee2e2;
+  color: #dc2626;
+
+  font-size: 16px;
+  font-weight: 700;
+
+  cursor: pointer;
+}
+
+.remove-file-button:hover:not(:disabled) {
+  background: #fecaca;
+}
+
+.remove-file-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
 
 }

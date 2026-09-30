@@ -124,3 +124,55 @@ export async function generateFlashcards(
 
   return response.json();
 }
+
+export async function generateSummary(
+  topic = "",
+  mode = "summary"
+) {
+  const response = await fetch(
+    `${BASE_URL}/summary`,
+    {
+      method: "POST",
+
+      headers: {
+        "Content-Type": "application/json",
+      },
+
+      body: JSON.stringify({
+        topic,
+        mode,
+      }),
+    }
+  );
+
+  if (!response.ok) {
+    const errorData = await response.json();
+
+    throw new Error(
+      errorData.detail ||
+      "Summary generation failed"
+    );
+  }
+
+  return response.json();
+}
+
+export async function deletePdf(filename) {
+  const response = await fetch(
+    `${BASE_URL}/documents/${encodeURIComponent(filename)}`,
+    {
+      method: "DELETE",
+    }
+  );
+
+  if (!response.ok) {
+    const errorData = await response.json();
+
+    throw new Error(
+      errorData.detail ||
+      "Failed to remove PDF"
+    );
+  }
+
+  return response.json();
+}
