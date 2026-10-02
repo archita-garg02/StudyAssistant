@@ -2,6 +2,7 @@ import uuid
 
 import chromadb
 
+from pathlib import Path
 
 class VectorStore:
 
@@ -21,6 +22,10 @@ class VectorStore:
             )
         )
 
+
+    # --------------------------------------------------
+    # ADD DOCUMENTS
+    # --------------------------------------------------
 
     def add_documents(
         self,
@@ -62,6 +67,10 @@ class VectorStore:
         )
 
 
+    # --------------------------------------------------
+    # CHECK IF DOCUMENT EXISTS
+    # --------------------------------------------------
+
     def document_exists(
         self,
         filename
@@ -78,43 +87,135 @@ class VectorStore:
             )
 
 
-            return len(
-                result.get(
-                    "ids",
-                    []
-                )
-            ) > 0
+            ids = result.get(
+                "ids",
+                []
+            )
 
 
-        except Exception:
+            return len(ids) > 0
+
+
+        except Exception as error:
+
+            print(
+                "Document existence check error:",
+                error
+            )
 
             return False
 
-def delete_document(self, filename):
 
-    result = self.collection.get(
-        where={
-            "source": {
-                "$eq": filename
-            }
-        }
-    )
+    # --------------------------------------------------
+    # DELETE ONE DOCUMENT
+    # --------------------------------------------------
 
-    ids = result.get(
-        "ids",
-        []
-    )
+    def delete_document(
+        self,
+        filename
+    ):
 
-    if not ids:
-        return 0
+        try:
 
-    self.collection.delete(
-        ids=ids
-    )
+            # Find all chunks belonging
+            # to this PDF
+            result = self.collection.get(
+                where={
+                    "source": {
+                        "$eq": filename
+                    }
+                }
+            )
 
-    print(
-        f"Deleted {len(ids)} chunks "
-        f"for {filename}"
-    )
 
-    return len(ids)
+            ids = result.get(
+                "ids",
+                []
+            )
+
+
+            # Document does not exist
+            if not ids:
+
+                print(
+                    f"No chunks found for {filename}"
+                )
+
+                return 0
+
+
+            # Delete only matching chunks
+            self.collection.delete(
+                ids=ids
+            )
+
+
+            print(
+                f"Deleted {len(ids)} chunks "
+                f"for {filename}"
+            )
+
+
+            return len(ids)
+
+
+        except Exception as error:
+
+            print(
+                "Document deletion error:",
+                error
+            )
+
+            raise
+
+def list_documents(self):
+
+    try:
+
+        result = self.collection.get(
+            include=["metadatas"]
+        )
+
+        metadatas = result.get(
+            "metadatas",
+            []
+        )
+
+        documents = set()
+
+
+        for metadata in metadatas:
+
+            if not metadata:
+                continue
+
+
+            source = metadata.get(
+                "source"
+            )
+
+
+            if source:
+
+                filename = Path(
+                    source
+                ).name
+
+                documents.add(
+                    filename
+                )
+
+
+        return sorted(
+            documents
+        )
+
+
+    except Exception as error:
+
+        print(
+            "List documents error:",
+            error
+        )
+
+        return []

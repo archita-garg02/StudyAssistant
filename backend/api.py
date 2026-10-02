@@ -73,6 +73,10 @@ class FlashcardRequest(BaseModel):
     topic: str = ""
     count: int = 8
 
+class SummaryRequest(BaseModel):
+    topic: str = ""
+    mode: str = "summary"
+
 
 # --------------------------------------------------
 # INITIALIZE AI SYSTEM
@@ -509,8 +513,16 @@ def generate_quiz(
 You are a study assistant.
 
 Generate exactly {request.count}
-multiple-choice questions using ONLY
-the study-note context below.
+DIFFERENT multiple-choice questions
+using ONLY the study-note context below.
+
+IMPORTANT RULES:
+
+- Every question must be unique.
+- Do not repeat the same concept in different wording.
+- Cover different concepts from the provided notes.
+- Do not create duplicate questions.
+- Questions should test different parts of the study material.
 
 Each question must contain:
 
@@ -982,6 +994,248 @@ def delete_document(filename: str):
 
         print(
             "Delete PDF error:",
+            error
+        )
+
+        raise HTTPException(
+            status_code=500,
+            detail=str(error)
+        )
+
+
+# --------------------------------------------------
+# SUMMARY / KEY POINTS / REVISION NOTES
+# --------------------------------------------------
+
+@app.post("/summary")
+def generate_summary(
+    request: SummaryRequest
+):
+
+    try:
+
+        # ------------------------------------------
+        # MODE
+        # ------------------------------------------
+
+        mode = request.mode.strip().lower()
+
+        allowed_modes = [
+            "summary",
+            "keypoints",
+            "revision"
+        ]
+
+
+        if mode not in allowed_modes:
+
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid summary mode."
+            )
+
+
+        # ------------------------------------------
+        # TOPIC
+        # ------------------------------------------
+
+        topic = request.topic.strip()
+
+
+        query = (
+            topic
+            if topic
+            else
+            "Important concepts from the study notes"
+        )
+
+
+        # ------------------------------------------
+        # RETRIEVE CONTENT
+        # ------------------------------------------
+
+        results = retriever.retrieve(
+            query,
+            top_k=8
+        )
+
+
+        documents_found = results.get(
+            "documents",
+            [[]]
+        )[0]
+
+
+        if not documents_found:
+
+            raise HTTPException(
+                status_code=400,
+                detail=
+                    "No study notes found. "
+                    "Please upload a PDF first."
+            )
+
+
+        context = "\n\n".join(
+            documents_found
+        )
+
+
+        # ------------------------------------------
+        # MODE-SPECIFIC INSTRUCTIONS
+        # ------------------------------------------
+
+        if mode == "summary":
+
+            instruction = """
+Create a clear and concise study summary.
+
+Explain the important concepts in simple language.
+
+Use short paragraphs.
+
+Do not add information that is not present
+in the provided study notes.
+"""
+
+
+        elif mode == "keypoints":
+
+            instruction = """
+Extract the most important points from
+the study notes.
+
+Return them as clear bullet points.
+
+Each point should be short and useful
+for quick revision.
+
+Do not add information outside the notes.
+"""
+
+
+        else:
+
+            instruction = """
+Create structured revision notes.
+
+Organize the content using headings,
+subheadings, bullet points and short
+explanations.
+
+Highlight definitions, important facts,
+concepts and examples when present.
+
+The result should be useful for
+exam revision.
+
+Use only the provided study notes.
+"""
+
+
+        # ------------------------------------------
+        # PROMPT
+        # ------------------------------------------
+
+        prompt = f"""
+You are an intelligent study assistant.
+
+{instruction}
+
+Study-note context:
+
+{context}
+
+Requested topic:
+
+{topic if topic else "General study notes"}
+"""
+
+
+        # ------------------------------------------
+        # GENERATE
+        # ------------------------------------------
+
+        response = quiz_llm.invoke(
+            prompt
+        )
+
+
+        generated_text = (
+            response.content.strip()
+        )
+
+
+        if not generated_text:
+
+            raise HTTPException(
+                status_code=500,
+                detail=
+                    "The AI returned an empty response."
+            )
+
+
+        # ------------------------------------------
+        # RESPONSE
+        # ------------------------------------------
+
+        return {
+            "topic":
+                topic
+                if topic
+                else "General",
+
+            "mode":
+                mode,
+
+            "summary":
+                generated_text
+        }
+
+
+    except HTTPException:
+        raise
+
+
+    except Exception as error:
+
+        print(
+            "Summary generation error:",
+            error
+        )
+
+        raise HTTPException(
+            status_code=500,
+            detail=str(error)
+        )
+
+# --------------------------------------------------
+# GET UPLOADED DOCUMENTS
+# --------------------------------------------------
+
+@app.get("/documents")
+def get_documents():
+
+    try:
+
+        documents = (
+            vectorstore.list_documents()
+        )
+
+
+        return {
+            "documents":
+                documents,
+
+            "count":
+                len(documents)
+        }
+
+
+    except Exception as error:
+
+        print(
+            "Get documents error:",
             error
         )
 

@@ -176,3 +176,20 @@ export async function deletePdf(filename) {
 
   return response.json();
 }
+
+export async function getDocuments() {
+  const response = await fetch(
+    `${BASE_URL}/documents`
+  );
+
+  if (!response.ok) {
+    const errorData = await response.json();
+
+    throw new Error(
+      errorData.detail ||
+      "Unable to load uploaded PDFs"
+    );
+  }
+
+  return response.json();
+}
